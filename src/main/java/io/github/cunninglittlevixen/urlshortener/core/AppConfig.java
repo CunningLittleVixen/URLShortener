@@ -8,6 +8,7 @@ public record AppConfig(
         Duration linkTtl,
         int minLimit,
         int maxLimit,
+        int defaultLimit,
         int codeLength,
         String prefix,
         Duration cleanupInterval,
@@ -22,6 +23,9 @@ public record AppConfig(
         }
         if (minLimit < 1 || maxLimit < minLimit) {
             throw new IllegalArgumentException("Границы лимита заданы неверно: минимум не меньше 1, максимум не меньше минимума");
+        }
+        if (defaultLimit < minLimit || defaultLimit > maxLimit) {
+            throw new IllegalArgumentException("Лимит переходов по умолчанию должен быть в пределах минимума и максимума");
         }
         if (codeLength < 1) {
             throw new IllegalArgumentException("Длина кода ссылки должна быть не меньше 1");
