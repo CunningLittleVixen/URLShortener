@@ -10,7 +10,7 @@ import java.time.Duration;
 import java.time.format.DateTimeParseException;
 import java.util.Properties;
 
-public final class Configloader {
+public final class ConfigLoader {
 
     private static final String DEFAULT_RESOURCE = "/app.properties";
 
@@ -20,7 +20,7 @@ public final class Configloader {
 
     public AppConfig load(String resourceName) {
         Properties props = new Properties();
-        try (InputStream in = Configloader.class.getResourceAsStream(resourceName)) {
+        try (InputStream in = ConfigLoader.class.getResourceAsStream(resourceName)) {
             if (in == null ) {
                 throw new IllegalStateException("Файл конфигурации не найден: " + resourceName);
             }
