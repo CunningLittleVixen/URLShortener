@@ -79,4 +79,18 @@ class LinkTest {
         assertThrows(IllegalArgumentException.class, () ->
             new Link("abc123", "https://example.com", UUID.randomUUID(), CREATED, CREATED, 5, 0));
     }
+
+    @Test
+    void statusReflectsExpiryAndLimitWithExpiryFirst() {
+        Instant created = Instant.parse("2026-11-08T10:00:00Z");
+        Instant expires = created.plusSeconds(3600);
+        UUID owner = UUID.randomUUID();
+        Link active = new Link("abc123", "https://example.com", owner, created, expires, 5, 0);
+        Link exhausted = new Link("abc124", "https://example.com", owner, created, expires, 5, 5);
+
+        assertEquals(LinkStatus.ACTIVE, active.status(created));
+        assertEquals(LinkStatus.LIMIT_REACHED, exhausted.status(created));
+        assertEquals(LinkStatus.EXPIRED, active.status(expires));
+        assertEquals(LinkStatus.EXPIRED, exhausted.status(expires));
+    }
 }

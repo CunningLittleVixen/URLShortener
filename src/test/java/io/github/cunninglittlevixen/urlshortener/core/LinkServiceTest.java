@@ -392,4 +392,43 @@ class LinkServiceTest {
 
         assertTrue(repository.findByOwner(owner).isEmpty());
     }
+
+    @Test
+    void listLinksReturnsOnlyOwnLinksOldestFirst() {
+        UUID owner = UUID.randomUUID();
+        Link third = serviceAt(NOW.plusSeconds(120)).createLink(owner, URL);
+        Link first = serviceAt(NOW).createLink(owner, URL);
+        Link second = serviceAt(NOW.plusSeconds(60)).createLink(owner, URL);
+        service().createLink(UUID.randomUUID(), URL);
+
+        assertEquals(List.of(first, second, third), service().listLinks(owner));
+    }
+
+    @Test
+    void listLinksIncludesExhaustedLinks() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 1);
+        service.open(link.code());
+
+        List<Link> links = service.listLinks(owner);
+
+        assertEquals(1, links.size());
+        assertEquals(LinkStatus.LIMIT_REACHED, links.get(0).status(NOW));
+    }
+
+    @Test
+    void editableLimitRangeDependsOnClickCount() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL, 10);
+        assertEquals(1, service.minEditableLimit(link));
+
+        service.open(link.code());
+        service.open(link.code());
+        service.open(link.code());
+        Link opened = repository.findByCode(link.code()).orElseThrow();
+
+        assertEquals(4, service.minEditableLimit(opened));
+        assertEquals(1000, service.maxEditableLimit());
+    }
 }
