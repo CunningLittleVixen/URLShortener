@@ -121,4 +121,39 @@ class LinkServiceTest {
         assertTrue(service.shortUrl(link).startsWith("clck.ru/"));
         assertTrue(service.shortUrl(link).endsWith(link.code()));
     }
+
+    @Test
+    void openReturnsOriginalUrlAndCountsClick() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL);
+
+        String result = service.open(link.code());
+
+        assertEquals(URL, result);
+        assertEquals(1, repository.findByCode(link.code()).orElseThrow().clickCount());
+    }
+
+    @Test
+    void openAcceptsCodeWithPrefixAndSpaces() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL);
+
+        assertEquals(URL, service.open("  clck.ru/" + link.code() + " "));
+    }
+
+    @Test
+    void openUnknownCodeThrows() {
+        LinkService service = service();
+
+        assertThrows(ServiceException.class, () -> service.open("nope12"));
+    }
+
+    @Test
+    void openBlankInputThrows() {
+        LinkService service = service();
+
+        assertThrows(ServiceException.class, () -> service.open("   "));
+        assertThrows(ServiceException.class, () -> service.open("clck.ru/"));
+        assertThrows(ServiceException.class, () -> service.open(null));
+    }
 }
