@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import io.github.cunninglittlevixen.urlshortener.infra.InMemoryLinkRepository;
 import io.github.cunninglittlevixen.urlshortener.infra.RandomCodeGenerator;
@@ -493,5 +494,58 @@ class LinkServiceTest {
         serviceAt(link.expiresAt()).removeExpired();
 
         assertTrue(notifications.takeAll(owner).isEmpty());
+    }
+
+    @Test
+    void takeNotificationsReturnsOnceAndClears() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 1);
+        service.open(link.code());
+
+        assertEquals(1, service.takeNotifications(owner).size());
+        assertTrue(service.takeNotifications(owner).isEmpty());
+    }
+
+    @Test
+    void loginWithUnknownUuidIsNotKnown() {
+        LoginResult result = service().login(UUID.randomUUID());
+
+        assertFalse(result.isKnown());
+        assertTrue(result.links().isEmpty());
+        assertTrue(result.notifications().isEmpty());
+    }
+
+    @Test
+    void loginShowsLinksAndNotificationsOnlyOnce() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link exhausted = service.createLink(owner, URL, 1);
+        service.createLink(owner, URL);
+        service.open(exhausted.code());
+
+        LoginResult first = service.login(owner);
+        LoginResult second = service.login(owner);
+
+        assertTrue(first.isKnown());
+        assertEquals(2, first.links().size());
+        assertEquals(1, first.notifications().size());
+        assertEquals(2, second.links().size());
+        assertTrue(second.notifications().isEmpty());
+    }
+
+    @Test
+    void userWithOnlyNotificationsIsKnownUntilTheyAreRead() {
+        UUID owner = UUID.randomUUID();
+        Link link = service().createLink(owner, URL);
+        serviceAt(link.expiresAt()).removeExpired();
+
+        LoginResult first = service().login(owner);
+        LoginResult second = service().login(owner);
+
+        assertTrue(first.links().isEmpty());
+        assertEquals(1, first.notifications().size());
+        assertTrue(first.isKnown());
+        assertFalse(second.isKnown());
     }
 }
