@@ -2,6 +2,8 @@ package io.github.cunninglittlevixen.urlshortener.core;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -66,6 +68,17 @@ public final class LinkService {
             throw new ServiceException("Лимит переходов по ссылке исчерпан. Создайте новую ссылку командой create.");
         }
         return link.withClickRegistered();
+    }
+
+    public List<Link> removeExpired() {
+        Instant now = clock.instant();
+        List<Link> removed = new ArrayList<>();
+        for (Link link : repository.findAll()) {
+            if (link.isExpired(now) && repository.delete(link.code())) {
+                removed.add(link);
+            }
+        }
+        return removed;
     }
 
     private String extractCode(String input) {
