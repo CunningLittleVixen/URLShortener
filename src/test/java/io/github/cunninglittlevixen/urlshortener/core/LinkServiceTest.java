@@ -258,4 +258,81 @@ class LinkServiceTest {
         assertEquals(1, later.removeExpired().size());
         assertTrue(later.removeExpired().isEmpty());
     }
+
+    @Test
+    void editLimitChangesOnlyLimit() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 5);
+        service.open(link.code());
+
+        Link edited = service.editLimit(owner, link.code(), 10);
+
+        assertEquals(10, edited.clickLimit());
+        assertEquals(1, edited.clickCount());
+        assertEquals(link.expiresAt(), edited.expiresAt());
+        assertEquals(edited, repository.findByCode(link.code()).orElseThrow());
+    }
+
+    @Test
+    void editLimitByNonOwnerThrowsAndKeepsLimit() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL, 5);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> service.editLimit(UUID.randomUUID(), link.code(), 10));
+
+        assertTrue(error.getMessage().contains("другому пользователю"));
+        assertEquals(5, repository.findByCode(link.code()).orElseThrow().clickLimit());
+    }
+
+    @Test
+    void editLimitRespectsBoundsAndCounter() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 10);
+        service.open(link.code());
+        service.open(link.code());
+        service.open(link.code());
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> service.editLimit(owner, link.code(), 3));
+        assertTrue(error.getMessage().contains("от 4 до 1000"));
+        assertThrows(ServiceException.class, () -> service.editLimit(owner, link.code(), 1001));
+
+        assertEquals(4, service.editLimit(owner, link.code(), 4).clickLimit());
+    }
+
+    @Test
+    void editLimitOfExhaustedLinkThrows() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 1);
+        service.open(link.code());
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> service.editLimit(owner, link.code(), 5));
+
+        assertTrue(error.getMessage().contains("исчерпан"));
+        assertEquals(1, repository.findByCode(link.code()).orElseThrow().clickLimit());
+    }
+
+    @Test
+    void editLimitOfExpiredLinkThrows() {
+        UUID owner = UUID.randomUUID();
+        Link link = service().createLink(owner, URL, 5);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> serviceAt(link.expiresAt()).editLimit(owner, link.code(), 10));
+
+        assertTrue(error.getMessage().contains("истёк"));
+    }
+
+    @Test
+    void editLimitUnknownCodeThrows() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+
+        assertThrows(ServiceException.class, () -> service.editLimit(owner, "nope12", 10));
+    }
 }
