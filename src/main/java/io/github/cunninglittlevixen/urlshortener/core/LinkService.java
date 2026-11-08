@@ -81,6 +81,38 @@ public final class LinkService {
         return removed;
     }
 
+    public Link editLimit(UUID ownerId, String input, int newLimit) {
+        Objects.requireNonNull(ownerId, "ownerId");
+        String code = extractCode(input);
+        Instant now = clock.instant();
+        return repository.update(code, current -> applyLimit(current, ownerId, newLimit, now))
+            .orElseThrow(() -> new ServiceException("Ссылка не найдена или уже удалена"));
+    }
+
+    private Link applyLimit(Link link, UUID ownerId, int newLimit, Instant now) {
+        requireOwner(link, ownerId);
+        if (link.isExpired(now)) {
+            throw new ServiceException("Срок действия ссылки истёк, изменить лимит нельзя.");
+        }
+        if (link.isLimitReached()) {
+            throw new ServiceException("Лимит переходов исчерпан, изменить его нельзя. "
+                + "Создайте новую ссылку командой create.");
+        }
+        int min = Math.max(config.minLimit(), link.clickCount() + 1);
+        int max = config.maxLimit();
+        if (newLimit < min || newLimit > max) {
+            throw new ServiceException("Допустимый лимит для этой ссылки: от " + min + " до " + max);
+        }
+        return link.withClickLimit(newLimit);
+    }
+
+    private void requireOwner(Link link, UUID ownerId) {
+        if (!link.ownerId().equals(ownerId)) {
+            throw new ServiceException("Эта ссылка принадлежит другому пользователю. "
+                + "Менять и удалять её может только владелец.");
+        }
+    }
+
     private String extractCode(String input) {
         String text = input == null ? "" : input.strip();
         if (text.startsWith(config.prefix())) {
