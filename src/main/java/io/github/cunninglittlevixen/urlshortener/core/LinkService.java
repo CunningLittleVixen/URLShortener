@@ -10,6 +10,7 @@ import java.util.UUID;
 public final class LinkService {
 
     private static final int MAX_CODE_ATTEMPTS = 10;
+    private static final String NOT_FOUND_MESSAGE = "Ссылка не найдена или уже удалена";
 
     private final LinkRepository repository;
     private final CodeGenerator codeGenerator;
@@ -56,7 +57,7 @@ public final class LinkService {
         String code = extractCode(input);
         Instant now = clock.instant();
         Link opened = repository.update(code, current -> registerClick(current, now))
-            .orElseThrow(() -> new ServiceException("Ссылка не найдена или уже удалена"));
+            .orElseThrow(() -> new ServiceException(NOT_FOUND_MESSAGE));
         return opened.originalUrl();
     }
 
@@ -86,7 +87,18 @@ public final class LinkService {
         String code = extractCode(input);
         Instant now = clock.instant();
         return repository.update(code, current -> applyLimit(current, ownerId, newLimit, now))
-            .orElseThrow(() -> new ServiceException("Ссылка не найдена или уже удалена"));
+            .orElseThrow(() -> new ServiceException(NOT_FOUND_MESSAGE));
+    }
+
+    public void deleteLink(UUID ownerId, String input) {
+        Objects.requireNonNull(ownerId, "ownerId");
+        String code = extractCode(input);
+        Link link = repository.findByCode(code)
+            .orElseThrow(() -> new ServiceException(NOT_FOUND_MESSAGE));
+        requireOwner(link, ownerId);
+        if (!repository.delete(code)) {
+            throw new ServiceException(NOT_FOUND_MESSAGE);
+        }
     }
 
     private Link applyLimit(Link link, UUID ownerId, int newLimit, Instant now) {
