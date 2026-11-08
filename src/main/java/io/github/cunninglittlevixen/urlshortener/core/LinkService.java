@@ -14,14 +14,16 @@ public final class LinkService {
     private static final String NOT_FOUND_MESSAGE = "Ссылка не найдена или уже удалена";
 
     private final LinkRepository repository;
+    private final NotificationRepository notificationRepository;
     private final CodeGenerator codeGenerator;
     private final UrlValidator urlValidator;
     private final AppConfig config;
     private final Clock clock;
 
-    public LinkService(LinkRepository repository, CodeGenerator codeGenerator,
+    public LinkService(LinkRepository repository, NotificationRepository notificationRepository, CodeGenerator codeGenerator,
                        UrlValidator urlValidator, AppConfig config, Clock clock) {
         this.repository = repository;
+        this.notificationRepository = notificationRepository;
         this.codeGenerator = codeGenerator;
         this.urlValidator = urlValidator;
         this.config = config;
@@ -59,6 +61,9 @@ public final class LinkService {
         Instant now = clock.instant();
         Link opened = repository.update(code, current -> registerClick(current, now))
             .orElseThrow(() -> new ServiceException(NOT_FOUND_MESSAGE));
+        if (opened.isLimitReached()) {
+            notifyOwner(opened, NotificationType.LIMIT_REACHED, now);
+        }
         return opened.originalUrl();
     }
 
@@ -78,6 +83,7 @@ public final class LinkService {
         for (Link link : repository.findAll()) {
             if (link.isExpired(now) && repository.delete(link.code())) {
                 removed.add(link);
+                notifyOwner(link, NotificationType.EXPIRED, now);
             }
         }
         return removed;
@@ -139,6 +145,11 @@ public final class LinkService {
             throw new ServiceException("Эта ссылка принадлежит другому пользователю. "
                 + "Менять и удалять её может только владелец.");
         }
+    }
+
+    private void notifyOwner(Link link, NotificationType type, Instant now) {
+        notificationRepository.add(
+            new Notification(link.ownerId(), type, link.code(), link.originalUrl(), now));
     }
 
     private String extractCode(String input) {
