@@ -35,6 +35,11 @@ class LinkServiceTest {
         return service(new RandomCodeGenerator(6));
     }
 
+    private LinkService serviceAt(Instant moment) {
+        return new LinkService(repository, new RandomCodeGenerator(6), new UrlValidator(),
+            config, Clock.fixed(moment, ZoneOffset.UTC));
+    }
+
     @Test
     void createsLinkWithDefaultLimitAndTtl() {
         UUID owner = UUID.randomUUID();
@@ -155,5 +160,61 @@ class LinkServiceTest {
         assertThrows(ServiceException.class, () -> service.open("   "));
         assertThrows(ServiceException.class, () -> service.open("clck.ru/"));
         assertThrows(ServiceException.class, () -> service.open(null));
+    }
+
+    @Test
+    void openWorksJustBeforeExpiry() {
+        Link link = service().createLink(UUID.randomUUID(), URL);
+        Instant almostExpired = link.expiresAt().minusSeconds(1);
+
+        assertEquals(URL, serviceAt(almostExpired).open(link.code()));
+    }
+
+    @Test
+    void openExpiredLinkThrowsAndKeepsCounter() {
+        Link link = service().createLink(UUID.randomUUID(), URL);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> serviceAt(link.expiresAt()).open(link.code()));
+
+        assertTrue(error.getMessage().contains("истёк"));
+        assertEquals(0, repository.findByCode(link.code()).orElseThrow().clickCount());
+    }
+
+    @Test
+    void openBlocksLinkAfterLimitReached() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL, 2);
+        service.open(link.code());
+        service.open(link.code());
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> service.open(link.code()));
+
+        assertTrue(error.getMessage().contains("исчерпан"));
+        assertEquals(2, repository.findByCode(link.code()).orElseThrow().clickCount());
+    }
+
+    @Test
+    void expiryHasPriorityOverLimit() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL, 1);
+        service.open(link.code());
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> serviceAt(link.expiresAt()).open(link.code()));
+
+        assertTrue(error.getMessage().contains("истёк"));
+    }
+
+    @Test
+    void blockedLinkStaysInRepositoryUntilCleanup() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL, 1);
+        service.open(link.code());
+
+        assertThrows(ServiceException.class, () -> service.open(link.code()));
+
+        assertTrue(repository.findByCode(link.code()).isPresent());
     }
 }

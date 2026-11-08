@@ -52,9 +52,20 @@ public final class LinkService {
 
     public String open(String input) {
         String code = extractCode(input);
-        Link opened = repository.update(code, Link::withClickRegistered)
+        Instant now = clock.instant();
+        Link opened = repository.update(code, current -> registerClick(current, now))
             .orElseThrow(() -> new ServiceException("Ссылка не найдена или уже удалена"));
         return opened.originalUrl();
+    }
+
+    private Link registerClick(Link link, Instant now) {
+        if (link.isExpired(now)) {
+            throw new ServiceException("Срок действия ссылки истёк. Создайте новую ссылку командой create.");
+        }
+        if (link.isLimitReached()) {
+            throw new ServiceException("Лимит переходов по ссылке исчерпан. Создайте новую ссылку командой create.");
+        }
+        return link.withClickRegistered();
     }
 
     private String extractCode(String input) {
