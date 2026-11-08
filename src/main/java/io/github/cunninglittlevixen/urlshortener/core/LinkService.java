@@ -3,6 +3,7 @@ package io.github.cunninglittlevixen.urlshortener.core;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -101,6 +102,21 @@ public final class LinkService {
         }
     }
 
+    public List<Link> listLinks(UUID ownerId) {
+        Objects.requireNonNull(ownerId, "ownerId");
+        return repository.findByOwner(ownerId).stream()
+            .sorted(Comparator.comparing(Link::createdAt))
+            .toList();
+    }
+
+    public int minEditableLimit(Link link) {
+        return Math.max(config.minLimit(), link.clickCount() + 1);
+    }
+
+    public int maxEditableLimit() {
+        return config.maxLimit();
+    }
+
     private Link applyLimit(Link link, UUID ownerId, int newLimit, Instant now) {
         requireOwner(link, ownerId);
         if (link.isExpired(now)) {
@@ -110,8 +126,8 @@ public final class LinkService {
             throw new ServiceException("Лимит переходов исчерпан, изменить его нельзя. "
                 + "Создайте новую ссылку командой create.");
         }
-        int min = Math.max(config.minLimit(), link.clickCount() + 1);
-        int max = config.maxLimit();
+        int min = minEditableLimit(link);
+        int max = maxEditableLimit();
         if (newLimit < min || newLimit > max) {
             throw new ServiceException("Допустимый лимит для этой ссылки: от " + min + " до " + max);
         }

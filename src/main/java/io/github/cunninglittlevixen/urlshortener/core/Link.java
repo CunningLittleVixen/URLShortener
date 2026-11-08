@@ -45,6 +45,16 @@ public record Link(
         return !isExpired(now) && !isLimitReached();
     }
 
+    public LinkStatus status(Instant now) {
+        if (isExpired(now)) {
+            return LinkStatus.EXPIRED;
+        }
+        if (isLimitReached()) {
+            return LinkStatus.LIMIT_REACHED;
+        }
+        return LinkStatus.ACTIVE;
+    }
+
     public Link withClickRegistered() {
         return new Link(code, originalUrl, ownerId, createdAt, expiresAt, clickLimit, clickCount + 1);
     }
