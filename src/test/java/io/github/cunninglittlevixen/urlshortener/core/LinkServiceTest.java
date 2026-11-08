@@ -335,4 +335,61 @@ class LinkServiceTest {
 
         assertThrows(ServiceException.class, () -> service.editLimit(owner, "nope12", 10));
     }
+
+    @Test
+    void deleteLinkRemovesOwnLink() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL);
+
+        service.deleteLink(owner, link.code());
+
+        assertTrue(repository.findByCode(link.code()).isEmpty());
+        assertThrows(ServiceException.class, () -> service.open(link.code()));
+    }
+
+    @Test
+    void deleteLinkByNonOwnerThrowsAndKeepsLink() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> service.deleteLink(UUID.randomUUID(), link.code()));
+
+        assertTrue(error.getMessage().contains("другому пользователю"));
+        assertTrue(repository.findByCode(link.code()).isPresent());
+    }
+
+    @Test
+    void deleteUnknownCodeThrows() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+
+        assertThrows(ServiceException.class, () -> service.deleteLink(owner, "nope12"));
+    }
+
+    @Test
+    void deleteAcceptsCodeWithPrefix() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL);
+
+        service.deleteLink(owner, "clck.ru/" + link.code());
+
+        assertTrue(repository.findByCode(link.code()).isEmpty());
+    }
+
+    @Test
+    void ownerCanDeleteExhaustedAndExpiredLinks() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link exhausted = service.createLink(owner, URL, 1);
+        service.open(exhausted.code());
+        Link expired = service.createLink(owner, URL);
+
+        service.deleteLink(owner, exhausted.code());
+        serviceAt(expired.expiresAt()).deleteLink(owner, expired.code());
+
+        assertTrue(repository.findByOwner(owner).isEmpty());
+    }
 }
