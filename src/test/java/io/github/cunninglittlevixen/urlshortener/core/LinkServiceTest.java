@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.cunninglittlevixen.urlshortener.infra.InMemoryLinkRepository;
 import io.github.cunninglittlevixen.urlshortener.infra.RandomCodeGenerator;
+import io.github.cunninglittlevixen.urlshortener.infra.InMemoryNotificationRepository;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -26,9 +27,10 @@ class LinkServiceTest {
         "clck.ru/", Duration.ofMinutes(1), Path.of("data/links.json"));
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private final InMemoryLinkRepository repository = new InMemoryLinkRepository();
+    private final InMemoryNotificationRepository notifications = new InMemoryNotificationRepository();
 
     private LinkService service(CodeGenerator generator) {
-        return new LinkService(repository, generator, new UrlValidator(), config, clock);
+        return new LinkService(repository, notifications,generator, new UrlValidator(), config, clock);
     }
 
     private LinkService service() {
@@ -36,7 +38,7 @@ class LinkServiceTest {
     }
 
     private LinkService serviceAt(Instant moment) {
-        return new LinkService(repository, new RandomCodeGenerator(6), new UrlValidator(),
+        return new LinkService(repository, notifications, new RandomCodeGenerator(6), new UrlValidator(),
             config, Clock.fixed(moment, ZoneOffset.UTC));
     }
 
@@ -430,5 +432,66 @@ class LinkServiceTest {
 
         assertEquals(4, service.minEditableLimit(opened));
         assertEquals(1000, service.maxEditableLimit());
+    }
+
+    @Test
+    void openNotifiesOwnerOnlyWhenLimitIsReached() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 2);
+
+        service.open(link.code());
+        assertTrue(notifications.takeAll(owner).isEmpty());
+
+        service.open(link.code());
+        List<Notification> received = notifications.takeAll(owner);
+        assertEquals(1, received.size());
+        assertEquals(NotificationType.LIMIT_REACHED, received.get(0).type());
+        assertEquals(link.code(), received.get(0).code());
+        assertEquals(URL, received.get(0).originalUrl());
+
+        assertThrows(ServiceException.class, () -> service.open(link.code()));
+        assertTrue(notifications.takeAll(owner).isEmpty());
+    }
+
+    @Test
+    void removeExpiredNotifiesOwner() {
+        UUID owner = UUID.randomUUID();
+        Link link = service().createLink(owner, URL);
+
+        serviceAt(link.expiresAt()).removeExpired();
+
+        List<Notification> received = notifications.takeAll(owner);
+        assertEquals(1, received.size());
+        assertEquals(NotificationType.EXPIRED, received.get(0).type());
+        assertEquals(link.code(), received.get(0).code());
+        assertEquals(link.expiresAt(), received.get(0).createdAt());
+    }
+
+    @Test
+    void exhaustedLinkGivesBothNotificationsInOrder() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL, 1);
+        service.open(link.code());
+
+        serviceAt(link.expiresAt()).removeExpired();
+
+        List<NotificationType> types = notifications.takeAll(owner).stream()
+            .map(Notification::type)
+            .toList();
+        assertEquals(List.of(NotificationType.LIMIT_REACHED, NotificationType.EXPIRED), types);
+    }
+
+    @Test
+    void manualDeleteCreatesNoNotification() {
+        LinkService service = service();
+        UUID owner = UUID.randomUUID();
+        Link link = service.createLink(owner, URL);
+        service.deleteLink(owner, link.code());
+
+        serviceAt(link.expiresAt()).removeExpired();
+
+        assertTrue(notifications.takeAll(owner).isEmpty());
     }
 }
