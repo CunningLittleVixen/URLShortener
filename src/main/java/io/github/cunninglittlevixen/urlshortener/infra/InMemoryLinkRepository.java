@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.UnaryOperator;
 
 public final class InMemoryLinkRepository implements LinkRepository {
 
@@ -18,8 +19,9 @@ public final class InMemoryLinkRepository implements LinkRepository {
     }
 
     @Override
-    public void save(Link link) {
-        links.put(link.code(), link);
+    public Optional<Link> update(String code, UnaryOperator<Link> updater) {
+        return Optional.ofNullable(
+            links.computeIfPresent(code, (key, link) -> updater.apply(link)));
     }
 
     @Override

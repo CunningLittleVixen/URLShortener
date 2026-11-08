@@ -2,11 +2,16 @@ package io.github.cunninglittlevixen.urlshortener.infra;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.cunninglittlevixen.urlshortener.core.Link;
+import io.github.cunninglittlevixen.urlshortener.core.ServiceException;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class InMemoryLinkRepositoryTest {
@@ -48,14 +53,45 @@ class InMemoryLinkRepositoryTest {
     }
 
     @Test
-    void saveReplacesExistingLink() {
-        Link original = link("abc123", UUID.randomUUID());
-        repository.add(original);
+    void updateReplacesStoredLink() {
+        repository.add(link("abc123", UUID.randomUUID()));
 
-        repository.save(original.withClickRegistered());
+        repository.update("abc123", Link::withClickRegistered);
 
         assertEquals(1, repository.findByCode("abc123").orElseThrow().clickCount());
     }
+
+    @Test
+    void updateReturnsEmptyForUnknownCode() {
+        assertTrue(repository.update("missing", Link::withClickRegistered).isEmpty());
+    }
+
+    @Test
+    void updateKeepsLinkWhenUpdaterThrows() {
+        repository.add(link("abc123", UUID.randomUUID()));
+
+        assertThrows(ServiceException.class, () -> repository.update("abc123", l -> {
+            throw new ServiceException("отказ");
+        }));
+
+        assertEquals(0, repository.findByCode("abc123").orElseThrow().clickCount());
+    }
+
+    @Test
+    void concurrentUpdatesDoNotLoseClicks() throws Exception {
+        repository.add(new Link("abc123", "https://example.com", UUID.randomUUID(),
+            CREATED, CREATED.plusSeconds(3600), 1000, 0));
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+
+        for (int i = 0; i < 1000; i++) {
+            pool.submit(() -> repository.update("abc123", Link::withClickRegistered));
+        }
+        pool.shutdown();
+
+        assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS));
+        assertEquals(1000, repository.findByCode("abc123").orElseThrow().clickCount());
+    }
+
 
     @Test
     void deleteRemovesLinkOnlyOnce() {
