@@ -115,6 +115,16 @@ public final class LinkService {
             .toList();
     }
 
+    public List<Notification> takeNotifications(UUID ownerId) {
+        Objects.requireNonNull(ownerId, "ownerId");
+        return notificationRepository.takeAll(ownerId);
+    }
+
+    public LoginResult login(UUID ownerId) {
+        Objects.requireNonNull(ownerId, "ownerId");
+        return new LoginResult(listLinks(ownerId), notificationRepository.takeAll(ownerId));
+    }
+
     public int minEditableLimit(Link link) {
         return Math.max(config.minLimit(), link.clickCount() + 1);
     }
