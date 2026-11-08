@@ -49,4 +49,22 @@ public final class LinkService {
     public String shortUrl(Link link) {
         return config.prefix() + link.code();
     }
+
+    public String open(String input) {
+        String code = extractCode(input);
+        Link opened = repository.update(code, Link::withClickRegistered)
+            .orElseThrow(() -> new ServiceException("Ссылка не найдена или уже удалена"));
+        return opened.originalUrl();
+    }
+
+    private String extractCode(String input) {
+        String text = input == null ? "" : input.strip();
+        if (text.startsWith(config.prefix())) {
+            text = text.substring(config.prefix().length());
+        }
+        if (text.isBlank()) {
+            throw new ServiceException("Введите короткую ссылку, например: " + config.prefix() + "aB3xYz");
+        }
+        return text;
+    }
 }
