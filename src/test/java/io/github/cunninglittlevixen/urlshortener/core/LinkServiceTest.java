@@ -217,4 +217,45 @@ class LinkServiceTest {
 
         assertTrue(repository.findByCode(link.code()).isPresent());
     }
+
+    @Test
+    void removeExpiredDeletesOnlyExpiredLinks() {
+        Link old = service().createLink(UUID.randomUUID(), URL);
+        Link fresh = serviceAt(NOW.plus(Duration.ofHours(1))).createLink(UUID.randomUUID(), URL);
+
+        List<Link> removed = serviceAt(old.expiresAt()).removeExpired();
+
+        assertEquals(List.of(old), removed);
+        assertTrue(repository.findByCode(old.code()).isEmpty());
+        assertTrue(repository.findByCode(fresh.code()).isPresent());
+    }
+
+    @Test
+    void removeExpiredKeepsLinksBeforeExpiry() {
+        Link link = service().createLink(UUID.randomUUID(), URL);
+
+        List<Link> removed = serviceAt(link.expiresAt().minusSeconds(1)).removeExpired();
+
+        assertTrue(removed.isEmpty());
+        assertTrue(repository.findByCode(link.code()).isPresent());
+    }
+
+    @Test
+    void removeExpiredKeepsExhaustedLinkUntilTtlEnds() {
+        LinkService service = service();
+        Link link = service.createLink(UUID.randomUUID(), URL, 1);
+        service.open(link.code());
+
+        assertTrue(service.removeExpired().isEmpty());
+        assertTrue(repository.findByCode(link.code()).isPresent());
+    }
+
+    @Test
+    void removeExpiredReturnsEachLinkOnlyOnce() {
+        Link link = service().createLink(UUID.randomUUID(), URL);
+        LinkService later = serviceAt(link.expiresAt());
+
+        assertEquals(1, later.removeExpired().size());
+        assertTrue(later.removeExpired().isEmpty());
+    }
 }
