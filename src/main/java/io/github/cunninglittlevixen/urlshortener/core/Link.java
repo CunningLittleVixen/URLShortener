@@ -63,5 +63,3 @@ public record Link(
         return new Link(code, originalUrl, ownerId, createdAt, expiresAt, newLimit, clickCount);
     }
 }
-
-
