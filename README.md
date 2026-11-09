@@ -8,6 +8,29 @@
 junit-jupiter версия 6.1.3  Модульные тесты (область test)
 Jackson Databind (`tools.jackson.core:jackson-databind`) версия 3.2.4  Чтение и запись данных в JSON-файл 
 
+## Установка и запуск
+
+Требуется JDK 21 (проверьте командой `java -version`) и Git. Отдельно устанавливать
+Maven не нужно, проект содержит Maven Wrapper.
+
+```bash
+git clone [https://github.com/CunningLittleVixen/URLShortener.git](https://github.com/CunningLittleVixen/URLShortener.git)
+cd URLShortener
+./mvnw clean package
+java -jar target/url-shortener-1.0-SNAPSHOT.jar
+```
+
+- Сборка запускает тесты. Чтобы пропустить их: `./mvnw clean package -DskipTests`.
+- Программа читает конфигурацию из `app.properties` внутри jar-файла; чтобы изменить срок
+  жизни или лимиты, поправьте `src/main/resources/app.properties` и пересоберите проект.
+- Папка `data/` с файлами ссылок и уведомлений создаётся в том месте, откуда вы запустили
+  программу. Запускайте её всегда из одной и той же папки, иначе данные «пропадут».
+- Если браузер не открывается автоматически (нет графической среды), программа выведет
+  адрес, и его можно открыть вручную.
+- Если русский текст в консоли отображается неверно, в Windows-консоли выполните
+  `chcp 65001`; в Git Bash и IntelliJ дополнительных настроек обычно не требуется.
+- Запуск из IntelliJ IDEA: откройте класс `Main` и нажмите Run рядом с методом `main`.
+
 ## Команды
 
 | `create <url> [лимит]` | Создаёт короткую ссылку. Гость получает новый UUID (его нужно сохранить). Лимит от 1 до 1000, по умолчанию 1000 |
@@ -20,6 +43,39 @@ Jackson Databind (`tools.jackson.core:jackson-databind`) версия 3.2.4  Ч�
 | `logout` | Выход (режим гостя) |
 | `help` | Справка |
 | `exit` | Завершение программы |
+
+## Пример работы
+
+```text
+> create [https://www.baeldung.com/java-9-http-client](https://www.baeldung.com/java-9-http-client) 2
+========================================
+Ваш новый UUID: 123e4567-e89b-12d3-a456-426614174000
+СОХРАНИТЕ ЕГО! Он нужен, чтобы войти снова (команда login <uuid>).
+Восстановить потерянный UUID невозможно.
+========================================
+Короткая ссылка создана: clck.ru/aB3xYz
+Исходный адрес: [https://www.baeldung.com/java-9-http-client](https://www.baeldung.com/java-9-http-client)
+Лимит переходов: 2. Действует до: 10.11.2026 15:30:00
+> open clck.ru/aB3xYz
+Открываю в браузере: [https://www.baeldung.com/java-9-http-client](https://www.baeldung.com/java-9-http-client)
+> open clck.ru/aB3xYz
+Открываю в браузере: [https://www.baeldung.com/java-9-http-client](https://www.baeldung.com/java-9-http-client)
+Уведомление: Лимит переходов по ссылке clck.ru/aB3xYz исчерпан: она больше не открывается ...
+> open clck.ru/aB3xYz
+Лимит переходов по ссылке исчерпан. Создайте новую ссылку командой create.
+> exit
+До свидания!
+```
+
+Правила, которые стоит знать:
+
+- При запуске вы гость. Первая команда `create` выдаёт UUID и входит под ним.
+- `login <uuid>` работает только из режима гостя; чтобы сменить пользователя, сначала `logout`.
+- Если все ссылки пользователя истекли и уведомления прочитаны, его UUID становится
+  неизвестным: чтобы продолжить, выполните `create`.
+- Ошибки ввода (неверная команда, чужая ссылка, лимит вне диапазона) выводятся
+  сообщением, программа продолжает работу. Справка: `help`.
+- Выйти можно командой `exit`, Ctrl+C или концом ввода (Ctrl+D / Ctrl+Z).
 
 ## Конфигурация
 
