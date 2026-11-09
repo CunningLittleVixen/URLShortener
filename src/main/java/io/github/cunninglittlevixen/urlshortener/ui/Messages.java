@@ -13,6 +13,9 @@ public final class Messages {
     private static final DateTimeFormatter TIME_FORMAT =
         DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 
+    public static final String WELCOME =
+        "Сервис коротких ссылок. Вы в режиме гостя. Введите help, чтобы увидеть список команд.";
+
     private Messages() {
     }
 

@@ -70,6 +70,11 @@ public final class CommandProcessor {
         return true;
     }
 
+    public void showPendingNotifications() {
+        session.currentUser().ifPresent(
+            userId -> printNotifications(service.takeNotifications(userId)));
+    }
+
     private void whoami() {
         session.currentUser().ifPresentOrElse(
             id -> out.println("Ваш UUID: " + id),
