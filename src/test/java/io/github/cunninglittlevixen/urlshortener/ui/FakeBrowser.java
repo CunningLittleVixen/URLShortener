@@ -3,9 +3,9 @@ package io.github.cunninglittlevixen.urlshortener.ui;
 import java.util.ArrayList;
 import java.util.List;
 
-final class FakeBrowser implements Browser {
+public final class FakeBrowser implements Browser {
 
-    boolean succeeds = true;
+    public boolean succeeds = true;
     private final List<String> opened = new ArrayList<>();
 
     @Override
@@ -14,7 +14,7 @@ final class FakeBrowser implements Browser {
         return succeeds;
     }
 
-    List<String> opened() {
+    public List<String> opened() {
         return opened;
     }
 }
