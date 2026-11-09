@@ -25,7 +25,7 @@ class LinkServiceTest {
     private static final String URL = "https://www.baeldung.com/java-9-http-client";
 
     private final AppConfig config = new AppConfig(Duration.ofHours(24), 1, 1000, 500, 6,
-        "clck.ru/", Duration.ofMinutes(1), Path.of("data/links.json"));
+        "clck.ru/", Duration.ofMinutes(1), Path.of("data/links.json"), Path.of("data/notifications.json"));
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private final InMemoryLinkRepository repository = new InMemoryLinkRepository();
     private final InMemoryNotificationRepository notifications = new InMemoryNotificationRepository();

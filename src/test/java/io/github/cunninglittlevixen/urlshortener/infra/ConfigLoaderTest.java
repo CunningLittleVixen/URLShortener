@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.cunninglittlevixen.urlshortener.core.AppConfig;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ class ConfigLoaderTest {
         p.setProperty("link.prefix", "clck.ru/");
         p.setProperty("cleanup.interval", "PT1M");
         p.setProperty("storage.file", "data/links.json");
+        p.setProperty("storage.notifications-file", "data/notifications.json");
         return p;
     }
 
@@ -81,5 +83,32 @@ class ConfigLoaderTest {
         AppConfig config = loader.load();
 
         assertEquals("clck.ru/", config.prefix());
+    }
+
+    @Test
+    void readsStoragePaths() {
+        AppConfig config = loader.fromProperties(validProperties());
+
+        assertEquals(Path.of("data/links.json"), config.storageFile());
+        assertEquals(Path.of("data/notifications.json"), config.notificationsFile());
+    }
+
+    @Test
+    void failsWhenNotificationsFileIsMissing() {
+        Properties p = validProperties();
+        p.remove("storage.notifications-file");
+
+        IllegalStateException e =
+            assertThrows(IllegalStateException.class, () -> loader.fromProperties(p));
+
+        assertTrue(e.getMessage().contains("storage.notifications-file"));
+    }
+
+    @Test
+    void failsWhenBothFilesAreTheSame() {
+        Properties p = validProperties();
+        p.setProperty("storage.notifications-file", "data/links.json");
+
+        assertThrows(IllegalArgumentException.class, () -> loader.fromProperties(p));
     }
 }

@@ -7,12 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestClassOrder;
 
 public class AppConfigTest {
 
     private AppConfig create(int minLimit, int maxLimit, int defaultLimit) {
-        return new AppConfig(Duration.ofHours(24), minLimit, maxLimit, defaultLimit, 6, "clck.ru/", Duration.ofMinutes(1), Path.of("data/links.json"));
+        return new AppConfig(Duration.ofHours(24), minLimit, maxLimit, defaultLimit, 6, "clck.ru/", Duration.ofMinutes(1), Path.of("data/links.json"), Path.of("data/notifications.json"));
     }
 
     @Test
@@ -35,5 +34,14 @@ public class AppConfigTest {
             assertThrows(IllegalArgumentException.class, () -> create(1, 1000, 2000));
 
         assertTrue(e.getMessage().contains("по умолчанию"));
+    }
+
+    @Test
+    void failsWhenStorageFilesAreTheSame() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> new AppConfig(Duration.ofHours(24), 1, 1000, 1000, 6, "clck.ru/",
+                Duration.ofMinutes(1), Path.of("data/same.json"), Path.of("./data/same.json")));
+
+        assertTrue(e.getMessage().contains("разными"));
     }
 }
