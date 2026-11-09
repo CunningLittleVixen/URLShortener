@@ -12,7 +12,8 @@ public record AppConfig(
         int codeLength,
         String prefix,
         Duration cleanupInterval,
-        Path storageFile) {
+        Path storageFile,
+        Path notificationsFile) {
 
     public AppConfig {
         if (linkTtl.isZero() || linkTtl.isNegative()) {
@@ -29,6 +30,9 @@ public record AppConfig(
         }
         if (codeLength < 1) {
             throw new IllegalArgumentException("Длина кода ссылки должна быть не меньше 1");
+        }
+        if (storageFile.toAbsolutePath().normalize().equals(notificationsFile.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException("Файлы ссылок и уведомлений должны быть разными");
         }
     }
 }

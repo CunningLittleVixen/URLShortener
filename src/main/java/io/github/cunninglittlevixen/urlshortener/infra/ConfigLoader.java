@@ -41,7 +41,8 @@ public final class ConfigLoader {
                 Integer.parseInt(required(props, "link.code-length")),
                 required(props, "link.prefix"),
                 Duration.parse(required(props, "cleanup.interval")),
-                Path.of(required(props, "storage.file"))
+                Path.of(required(props, "storage.file")),
+                Path.of(required(props, "storage.notifications-file"))
             );
         } catch (DateTimeParseException | NumberFormatException e) {
             throw new IllegalStateException("Неверное значение в конфигурации: " + e.getMessage(), e);
