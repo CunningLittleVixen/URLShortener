@@ -2,9 +2,11 @@ package io.github.cunninglittlevixen.urlshortener.ui;
 
 import io.github.cunninglittlevixen.urlshortener.core.LinkStatus;
 import io.github.cunninglittlevixen.urlshortener.core.Notification;
+import io.github.cunninglittlevixen.urlshortener.core.AppConfig;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 public final class Messages {
 
@@ -36,5 +38,35 @@ public final class Messages {
 
     public static String formatTime(Instant moment, ZoneId zone) {
         return TIME_FORMAT.format(moment.atZone(zone));
+    }
+
+    public static String help(AppConfig config) {
+        return """
+            Команды:
+              create <url> [лимит]      создать короткую ссылку (лимит от %d до %d, по умолчанию %d)
+              list                      показать ваши ссылки
+              open <ссылка>             открыть ссылку в браузере, например: open clck.ru/aB3xYz
+              edit-limit <код> <лимит>  изменить лимит переходов у действующей ссылки
+              delete <код>              удалить свою ссылку
+              whoami                    показать ваш UUID
+              login <uuid>              войти по UUID (только из режима гостя)
+              logout                    выйти (стать гостем)
+              help                      показать эту справку
+              exit                      завершить программу
+
+            Адрес для сокращения: только http или https, с именем хоста, не длиннее 2048 символов.
+            Пример: create https://www.baeldung.com/java-9-http-client 10
+            """.formatted(config.minLimit(), config.maxLimit(), config.defaultLimit())
+            .stripTrailing();
+    }
+
+    public static String newUserBanner(UUID userId) {
+        return """
+            ========================================
+            Ваш новый UUID: %s
+            СОХРАНИТЕ ЕГО! Он нужен, чтобы войти снова (команда login <uuid>).
+            Восстановить потерянный UUID невозможно.
+            ========================================
+            """.formatted(userId).stripTrailing();
     }
 }
