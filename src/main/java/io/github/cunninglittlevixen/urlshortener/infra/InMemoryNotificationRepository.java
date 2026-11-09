@@ -29,4 +29,11 @@ public final class InMemoryNotificationRepository implements NotificationReposit
         List<Notification> taken = notifications.remove(ownerId);
         return taken == null ? List.of() : taken;
     }
+
+    @Override
+    public List<Notification> findAll() {
+        return notifications.values().stream()
+            .flatMap(List::stream)
+            .toList();
+    }
 }

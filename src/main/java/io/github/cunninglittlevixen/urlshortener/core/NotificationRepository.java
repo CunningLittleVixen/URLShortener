@@ -8,4 +8,6 @@ public interface NotificationRepository {
     void add(Notification notification);
 
     List<Notification> takeAll(UUID ownerId);
+
+    List<Notification> findAll();
 }
