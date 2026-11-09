@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -36,8 +37,9 @@ class CommandProcessorTest {
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     private final Session session = new Session();
     private final LinkService service = serviceAt(NOW);
+    private final FakeBrowser browser = new FakeBrowser();
     private final CommandProcessor processor = new CommandProcessor(service, new UserIdParser(),
-        session, config, Clock.fixed(NOW, ZoneOffset.UTC),
+        session, browser, config, Clock.fixed(NOW, ZoneOffset.UTC),
         new PrintStream(buffer, true, StandardCharsets.UTF_8));
 
     private LinkService serviceAt(Instant moment) {
@@ -176,5 +178,119 @@ class CommandProcessorTest {
 
         assertTrue(session.isGuest());
         assertTrue(text.contains(id.toString()));
+    }
+
+    @Test
+    void listShowsLinksWithStatusAndEditRange() {
+        run("create " + URL + " 5");
+
+        String text = run("list");
+
+        assertTrue(text.contains("Ваши ссылки"));
+        assertTrue(text.contains("переходы: 0 из 5"));
+        assertTrue(text.contains("лимит можно менять от 1 до 1000"));
+    }
+
+    @Test
+    void listWithoutLinksSaysSo() {
+        session.login(UUID.randomUUID());
+
+        assertTrue(run("list").contains("нет ссылок"));
+    }
+
+    @Test
+    void guestIsAskedToLoginForOwnerCommands() {
+        assertTrue(run("list").contains("Сначала выполните"));
+        assertTrue(run("edit-limit abc123 5").contains("Сначала выполните"));
+        assertTrue(run("delete abc123").contains("Сначала выполните"));
+    }
+
+    @Test
+    void guestCanOpenLinkAndBrowserGetsOriginalUrl() {
+        Link link = service.createLink(UUID.randomUUID(), URL, 5);
+
+        String text = run("open clck.ru/" + link.code());
+
+        assertEquals(List.of(URL), browser.opened());
+        assertTrue(text.contains("Открываю"));
+        assertEquals(1, links.findByCode(link.code()).orElseThrow().clickCount());
+    }
+
+    @Test
+    void failedBrowserPrintsUrlAndStillCountsClick() {
+        browser.succeeds = false;
+        Link link = service.createLink(UUID.randomUUID(), URL, 5);
+
+        String text = run("open " + link.code());
+
+        assertTrue(text.contains(URL));
+        assertTrue(text.contains("вручную"));
+        assertEquals(1, links.findByCode(link.code()).orElseThrow().clickCount());
+    }
+
+    @Test
+    void blockedLinkShowsReasonAndSkipsBrowser() {
+        Link link = service.createLink(UUID.randomUUID(), URL, 1);
+        run("open " + link.code());
+
+        String text = run("open " + link.code());
+
+        assertTrue(text.contains("исчерпан"));
+        assertEquals(1, browser.opened().size());
+    }
+
+    @Test
+    void openWithUnknownCodeOrNoArgumentDoesNotOpenBrowser() {
+        assertTrue(run("open nope12").contains("не найдена"));
+        assertTrue(run("open").contains("Использование"));
+        assertTrue(browser.opened().isEmpty());
+    }
+
+    @Test
+    void ownerCanChangeLimit() {
+        run("create " + URL + " 5");
+        UUID user = session.currentUser().orElseThrow();
+        String code = service.listLinks(user).get(0).code();
+
+        String text = run("edit-limit " + code + " 10");
+
+        assertTrue(text.contains("10"));
+        assertEquals(10, links.findByCode(code).orElseThrow().clickLimit());
+    }
+
+    @Test
+    void strangerCannotChangeOrDeleteLink() {
+        Link link = service.createLink(UUID.randomUUID(), URL, 5);
+        session.login(UUID.randomUUID());
+
+        assertTrue(run("edit-limit " + link.code() + " 10").contains("другому пользователю"));
+        assertTrue(run("delete " + link.code()).contains("другому пользователю"));
+
+        assertEquals(5, links.findByCode(link.code()).orElseThrow().clickLimit());
+    }
+
+    @Test
+    void invalidLimitShowsAllowedRange() {
+        UUID user = UUID.randomUUID();
+        session.login(user);
+        Link link = service.createLink(user, URL, 10);
+        service.open(link.code());
+        service.open(link.code());
+        service.open(link.code());
+
+        assertTrue(run("edit-limit " + link.code() + " 2").contains("от 4 до 1000"));
+        assertTrue(run("edit-limit " + link.code() + " abc").contains("целым числом"));
+    }
+
+    @Test
+    void ownerCanDeleteOwnLink() {
+        UUID user = UUID.randomUUID();
+        session.login(user);
+        Link link = service.createLink(user, URL);
+
+        String text = run("delete " + link.code());
+
+        assertTrue(text.contains("удалена"));
+        assertTrue(links.findByCode(link.code()).isEmpty());
     }
 }
