@@ -59,4 +59,13 @@ class InMemoryNotificationRepositoryTest {
 
         assertEquals(1000, repository.takeAll(owner).size());
     }
+
+    @Test
+    void findAllReturnsEverythingWithoutRemoving() {
+        repository.add(notification(UUID.randomUUID(), "aaa111"));
+        repository.add(notification(UUID.randomUUID(), "bbb222"));
+
+        assertEquals(2, repository.findAll().size());
+        assertEquals(2, repository.findAll().size());
+    }
 }
