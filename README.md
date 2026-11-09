@@ -13,6 +13,8 @@ Jackson Databind (`tools.jackson.core:jackson-databind`) версия 3.2.4  Ч�
 Параметры приложения хранятся в отдельном файле
 [`src/main/resources/app.properties`](src/main/resources/app.properties).
 Значения читаются при запуске, в коде они не прописаны.
+Файлы, где хранятся ссылки `storage.file`  `data/links.json`
+Файлы, где хранятся непрочитанные уведомления. `storage.notifications-file`  `data/notifications.json`  Должны отличаться от `storage.file` 
 
 ### Параметры
 
