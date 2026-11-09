@@ -21,15 +21,17 @@ public final class CommandProcessor {
     private final LinkService service;
     private final UserIdParser userIdParser;
     private final Session session;
+    private final Browser browser;
     private final AppConfig config;
     private final Clock clock;
     private final PrintStream out;
 
-    public CommandProcessor(LinkService service, UserIdParser userIdParser, Session session,
+    public CommandProcessor(LinkService service, UserIdParser userIdParser, Session session, Browser browser,
                             AppConfig config, Clock clock, PrintStream out) {
         this.service = service;
         this.userIdParser = userIdParser;
         this.session = session;
+        this.browser = browser;
         this.config = config;
         this.clock = clock;
         this.out = out;
@@ -51,6 +53,10 @@ public final class CommandProcessor {
                 case "login" -> login(args);
                 case "logout" -> logout();
                 case "create" -> create(args);
+                case "list" -> list(args);
+                case "open" -> open(args);
+                case "edit-limit" -> editLimit(args);
+                case "delete" -> delete(args);
                 case "exit" -> {
                     out.println("До свидания!");
                     return false;
@@ -122,6 +128,47 @@ public final class CommandProcessor {
             + Messages.formatTime(link.expiresAt(), clock.getZone()));
     }
 
+    private void list(String[] args) {
+        requireArgs(args, 0, 0, "list");
+        List<Link> links = service.listLinks(requireUser());
+        if (links.isEmpty()) {
+            out.println("У вас пока нет ссылок. Создайте первую командой create <url>.");
+            return;
+        }
+        out.println("Ваши ссылки:");
+        printLinks(links);
+    }
+
+    private void open(String[] args) {
+        requireArgs(args, 1, 1, "open <ссылка>");
+        String url = service.open(args[0]);
+        if (browser.open(url)) {
+            out.println("Открываю в браузере: " + url);
+        } else {
+            out.println("Не удалось открыть браузер автоматически. Переход засчитан. "
+                + "Скопируйте адрес и откройте его вручную: " + url);
+        }
+    }
+
+    private void editLimit(String[] args) {
+        requireArgs(args, 2, 2, "edit-limit <код> <лимит>");
+        UUID userId = requireUser();
+        Link updated = service.editLimit(userId, args[0], parseLimit(args[1]));
+        out.println("Лимит изменён: " + updated.clickLimit()
+            + " (уже использовано переходов: " + updated.clickCount() + ").");
+    }
+
+    private void delete(String[] args) {
+        requireArgs(args, 1, 1, "delete <код>");
+        service.deleteLink(requireUser(), args[0]);
+        out.println("Ссылка удалена.");
+    }
+
+    private UUID requireUser() {
+        return session.currentUser().orElseThrow(
+            () -> new ServiceException("Сначала выполните create <url> или login <uuid>."));
+    }
+
     private void printNotifications(List<Notification> notifications) {
         for (Notification notification : notifications) {
             out.println("Уведомление: "
@@ -155,7 +202,7 @@ public final class CommandProcessor {
             return Integer.parseInt(text);
         } catch (NumberFormatException e) {
             throw new ServiceException(
-                "Лимит должен быть целым числом, например: create https://example.com 5");
+                "Лимит должен быть целым числом, например: 5");
         }
     }
 }
