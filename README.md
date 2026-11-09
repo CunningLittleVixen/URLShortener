@@ -1,3 +1,6 @@
+
+[![CI](https://github.com/CunningLittleVixen/URLShortener/actions/workflows/ci.yml/badge.svg)](https://github.com/CunningLittleVixen/URLShortener/actions/workflows/ci.yml)
+
 ### Требования и Установка зависимостей:
 Зависимости управляются через Maven и скачиваются автоматически при первой сборке
 (./mvnw test или ./mvnw package). 
